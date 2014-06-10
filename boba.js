@@ -1,5 +1,7 @@
 (function() {
-  var Boba = (function() {
+  var Boba, extend, proxy, on;
+
+  Boba = (function() {
     var defaults = {
       pageName: "page",
       siteName: "site",
@@ -12,22 +14,22 @@
       this.ga = this._getGA();
       if (typeof this.ga !== "undefined") {
         // Extend defaults with options.
-        this.opts = $.extend(defaults, opts);
+        this.opts = extend(defaults, opts);
 
         // Watch anything defined in the options.
         if (typeof this.opts.watch !== "undefined") {
           for (var i = this.opts.watch.length - 1; i >= 0; i--) {
             this.watch.apply(this, this.opts.watch[i]);
-          };
+          }
         }
 
         this.pageName = this.opts.pageName;
         this.siteName = this.opts.siteName;
 
-        this.trackLinks = $.proxy(this.trackLinks, this);
-        this.push = $.proxy(this.push, this);
-        this.watch = $.proxy(this.watch, this);
-        this._onTrackedClick = $.proxy(this._onTrackedClick, this);
+        this.trackLinks = proxy(this.trackLinks, this);
+        this.push = proxy(this.push, this);
+        this.watch = proxy(this.watch, this);
+        this._onTrackedClick = proxy(this._onTrackedClick, this);
       } else {
         console.warn("Google Analytics not found. Boba could not initialize.");
       }
@@ -42,14 +44,17 @@
 
     Boba.prototype = {
       watch: function watch(eventType, selector, func) {
-        var trackingFunction = function(event) {
-          this.push(func(event));
-        };
-        $("body").on(
+        var body = document.querySelector('body'),
+            trackingFunction = function(event) {
+              this.push(func(event));
+            };
+
+        on(body,
           eventType + ".tracker",
           selector,
-          $.proxy(trackingFunction, this)
+          proxy(trackingFunction, this)
         );
+
         return this;
       },
 
@@ -71,7 +76,7 @@
 
       _onTrackedClick: function trackClick(event) {
         if (this.ga) {
-          return $(event.currentTarget).data();
+          return event.currentTarget.dataset;
         }
       },
 
@@ -99,6 +104,35 @@
 
     return Boba;
   }());
+
+  extend = function(dest, src) {
+    for(var key in src) {
+      dest[key] = src[key];
+    }
+
+    return dest;
+  };
+
+  proxy = function(fn, ref) {
+    return function() {
+      fn.call(ref);
+    };
+  };
+
+  on = function(el, eventName, selector, handler) {
+    var callback = function(e) {
+      if (e.target === selector) {
+        handler.call(el);
+      }
+    };
+
+    if (el.addEventListener) {
+      el.addEventListener(eventName, callback);
+    } else {
+      el.attachEvent('on' + eventName, callback);
+    }
+  };
+
   module.exports = Boba;
   window.Boba = Boba;
 }());
